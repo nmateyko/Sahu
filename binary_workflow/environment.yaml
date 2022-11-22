@@ -1,0 +1,7 @@
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - cutadapt =4.1
+  - NGMerge =0.3
+  - starcode =1.4

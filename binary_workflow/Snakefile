@@ -1,0 +1,114 @@
+DNA_SAMPLES = [
+  "sample.input_DNA_binary_rep1",
+  "sample.input_DNA_binary_rep2",
+]
+
+RNA_SAMPLES = [
+  "sample.RNA_GP5d_binary_rep1",
+  "sample.RNA_GP5d_binary_rep2",
+  "sample.RNA_HepG2_binary",
+  "sample.RNA_RPE_binary"
+]
+
+
+
+rule all:
+  input:
+    expand("clustered/input/{sample}.txt", sample=DNA_SAMPLES),
+    expand("clustered/RNA/{sample}.txt", sample=RNA_SAMPLES),
+
+
+rule cutadapt_trim_PE:
+  input:
+    r1="data/{sample}_1.fastq.gz",
+    r2="data/{sample}_2.fastq.gz"
+  output: 
+    r1="trimmed/{sample}_1.fastq.gz",
+    r2="trimmed/{sample}_2.fastq.gz"
+  params:
+    a1="AGATGGGAAGAGGACACCTCTGAACTCCAGTCAC",
+    a2="AGATGGGAAGAGGGTGGTGTAGGGAAAGAGTGT",
+    min_overlap=5
+  log:
+    "logs/{sample}_cutadapt.log"
+  conda:
+    "environment.yaml"
+  threads: 1
+  resources:
+    mem_mb=4800,
+    walltime="01:00:00"
+  shell:
+    "cutadapt -a {params.a1} -A {params.a2} -O {params.min_overlap} -j {threads} -o {output.r1} -p {output.r2} {input.r1} {input.r2} > {log}"
+
+rule cutadapt_trim_SE:
+  input:
+    "data/{sample}.fastq.gz",
+  output: 
+    "paired/RNA/{sample}.fastq",
+  params:
+    adapter="AGATGGGAAGAGGACACCTCTGAACTCCAGTCAC",
+    min_overlap=5
+  log:
+    "logs/{sample}_cutadapt.log"
+  conda:
+    "environment.yaml"
+  threads: 1
+  resources:
+    mem_mb=4800,
+    walltime="01:00:00"
+  shell:
+    "cutadapt -a {params.adapter} -O {params.min_overlap} -j {threads} -o {output} {input} > {log}"
+
+
+rule ngmerge:
+  input:
+    r1="trimmed/{sample}_1.fastq.gz",
+    r2="trimmed/{sample}_2.fastq.gz"
+  output: 
+    "paired/DNA/{sample}.fastq"
+  log:
+    "logs/NGmerge_failed_{sample}"
+  conda:
+    "environment.yaml"
+  threads: 1
+  resources:
+    mem_mb=4800,
+    walltime="01:00:00"
+  shell:
+    "NGmerge -1 {input.r1} -2 {input.r2} -o {output} -y -f {log} -n {threads}"
+
+
+rule cluster_DNA:
+  input:
+    "paired/DNA/{sample}.fastq"
+  output:
+    "clustered/input/{sample}.txt"
+  params:
+    length=75,
+    distance=3
+  log:
+    "logs/{sample}_starcode.log"
+  threads: 1
+  resources:
+    mem_mb=4800,
+    walltime="01:00:00"
+  shell:
+    "cut -c-{params.length} {input} | starcode -o {output} --print-clusters --seq-id -c -t {threads} -d {params.distance} > {log}"
+
+
+rule cluster_RNA:
+  input:
+    "paired/RNA/{sample}.fastq"
+  output:
+    "clustered/RNA/{sample}.txt"
+  params:
+    length=75,
+    distance=3
+  log:
+    "logs/{sample}_starcode.log"
+  threads: 1
+  resources:
+    mem_mb=4800,
+    walltime="01:00:00"
+  shell:
+    "cut -c-{params.length} {input} | starcode -o {output} --print-clusters --seq-id -c -t {threads} -d {params.distance} > {log}"
