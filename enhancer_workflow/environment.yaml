@@ -2,6 +2,7 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - cutadapt =4.1
-  - NGMerge =0.3
-  - starcode =1.4
+  - cutadapt=4.1
+  - NGMerge=0.3
+  - starcode=1.4
+  - prinseq=0.20.4
