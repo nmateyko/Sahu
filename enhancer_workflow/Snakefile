@@ -9,7 +9,7 @@ SAMPLES = [
 
 rule all:
   input:
-    expand("clustered/{sample}.txt", sample=SAMPLES)
+    expand("output/clustered/{sample}.txt", sample=SAMPLES)
 
 
 rule cutadapt_trim_PE:
@@ -17,16 +17,16 @@ rule cutadapt_trim_PE:
     r1="data/{sample}_1.fastq.gz",
     r2="data/{sample}_2.fastq.gz"
   output: 
-    r1="trimmed/{sample}_1.fastq.gz",
-    r2="trimmed/{sample}_2.fastq.gz"
+    r1=temp("output/trimmed/{sample}_1.fastq"),
+    r2=temp("output/trimmed/{sample}_2.fastq")
+  log:
+    "output/logs/{sample}_cutadapt.log"
+  conda:
+    "environment.yaml"
   params:
     a1="AGATGGGAAGAGGACACCTCTGAACTCCAGTCAC",
     a2="AGATGGGAAGAGGGTGGTGTAGGGAAAGAGTGT",
-    min_overlap=5
-  log:
-    "logs/{sample}_cutadapt.log"
-  conda:
-    "environment.yaml"
+    min_overlap=3
   threads: 1
   resources:
     mem_mb=4800,
@@ -37,12 +37,12 @@ rule cutadapt_trim_PE:
 
 rule ngmerge:
   input:
-    r1="trimmed/{sample}_1.fastq.gz",
-    r2="trimmed/{sample}_2.fastq.gz"
+    r1="output/trimmed/{sample}_1.fastq",
+    r2="output/trimmed/{sample}_2.fastq"
   output: 
-    "paired/{sample}.fastq"
+    temp("output/paired/{sample}.fastq")
   log:
-    "logs/NGmerge_failed_{sample}"
+    "output/logs/NGmerge_failed_{sample}"
   conda:
     "environment.yaml"
   threads: 1
@@ -53,17 +53,45 @@ rule ngmerge:
     "NGmerge -1 {input.r1} -2 {input.r2} -o {output} -y -f {log} -n {threads}"
 
 
+rule filter_length:
+  input:
+    "output/paired/{sample}.fastq"
+  output:
+    "output/length_filtered/{sample}.fastq"
+  log:
+    too_short="output/logs/too_short_{sample}.fastq.gz",
+    too_long="output/logs/too_long_{sample}.fastq.gz",
+  conda:
+    "environment.yaml"
+  params:
+    desired_len=170,
+    too_short=169,
+    too_long=171,
+  threads: 1
+  resources:
+    mem_mb=4800,
+    walltime="01:00:00"
+  shell:
+    """
+    seqkit seq {input} -m {params.desired_len} -M {params.desired_len} -j {threads} -o {output}
+    seqkit seq {input} -M {params.too_short} -j {threads} -o {log.too_short}
+    seqkit seq {input} -m {params.too_long} -j {threads} -o {log.too_long}
+    """
+    
+
 rule cluster:
   input:
-    "paired/{sample}.fastq"
+    "output/length_filtered/{sample}.fastq"
   output:
-    "clustered/{sample}.txt"
+    "output/clustered/{sample}.txt"
+  log:
+    "output/logs/{sample}_starcode.log"
+  threads: 1
+  conda:
+    "environment.yaml"
   params:
     length=75,
     distance=3
-  log:
-    "logs/{sample}_starcode.log"
-  threads: 1
   resources:
     mem_mb=4800,
     walltime="01:00:00"
