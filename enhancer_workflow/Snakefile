@@ -1,9 +1,9 @@
 SAMPLES = [
-  "sample.input_DNA_97",
-  "sample.input_DNA_98",
-  "sample.RNA_GP5d_rep1",
-  "sample.RNA_GP5d_rep2",
-  "sample.RNA_HepG2",
+  "input_DNA_97",
+  "input_DNA_98",
+  "RNA_GP5d_rep1",
+  "RNA_GP5d_rep2",
+  "RNA_HepG2",
 ]
 
 
@@ -14,8 +14,8 @@ rule all:
 
 rule cutadapt_trim_PE:
   input:
-    r1="data/{sample}_1.fastq.gz",
-    r2="data/{sample}_2.fastq.gz"
+    r1="/arc/project/st-cdeboer-1/Sahu_data/{sample}_1.fastq.gz",
+    r2="/arc/project/st-cdeboer-1/Sahu_data/{sample}_2.fastq.gz"
   output: 
     r1=temp("output/trimmed/{sample}_1.fastq"),
     r2=temp("output/trimmed/{sample}_2.fastq")
@@ -27,9 +27,9 @@ rule cutadapt_trim_PE:
     a1="AGATGGGAAGAGGACACCTCTGAACTCCAGTCAC",
     a2="AGATGGGAAGAGGGTGGTGTAGGGAAAGAGTGT",
     min_overlap=3
-  threads: 1
+  threads: 4
   resources:
-    mem_mb=4800,
+    mem_mb=19200,
     walltime="01:00:00"
   shell:
     "cutadapt -a {params.a1} -A {params.a2} -O {params.min_overlap} -j {threads} -o {output.r1} -p {output.r2} {input.r1} {input.r2} > {log}"
@@ -45,9 +45,9 @@ rule ngmerge:
     "output/logs/NGmerge_failed_{sample}"
   conda:
     "environment.yaml"
-  threads: 1
+  threads: 4
   resources:
-    mem_mb=4800,
+    mem_mb=19200,
     walltime="01:00:00"
   shell:
     "NGmerge -1 {input.r1} -2 {input.r2} -o {output} -y -f {log} -n {threads}"
@@ -67,9 +67,9 @@ rule filter_length:
     desired_len=170,
     too_short=169,
     too_long=171,
-  threads: 1
+  threads: 4
   resources:
-    mem_mb=4800,
+    mem_mb=19200,
     walltime="01:00:00"
   shell:
     """
@@ -86,14 +86,14 @@ rule cluster:
     "output/clustered/{sample}.txt"
   log:
     "output/logs/{sample}_starcode.log"
-  threads: 1
   conda:
     "environment.yaml"
   params:
     length=75,
     distance=3
+  threads: 16
   resources:
-    mem_mb=4800,
-    walltime="01:00:00"
+    mem_mb=96000,
+    walltime="03:00:00"
   shell:
     "cut -c-{params.length} {input} | starcode -o {output} --print-clusters --seq-id -c -t {threads} -d {params.distance} > {log}"
