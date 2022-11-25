@@ -1,3 +1,5 @@
 .snakemake/
 *.fastq.gz
 *.fastq
+output/
+job_logs/
